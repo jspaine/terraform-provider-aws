@@ -17,6 +17,7 @@ func TestAccAWSLakeFormation_serial(t *testing.T) {
 			"dataLocation": testAccAWSLakeFormationPermissions_dataLocation,
 			"database":     testAccAWSLakeFormationPermissions_database,
 			"disappears":   testAccAWSLakeFormationPermissions_disappears,
+			"policyTag":    testAccAWSLakeFormationPermissions_policy_tag,
 		},
 		"TablePermissions": {
 			"implicitTablePermissions": testAccAWSLakeFormationPermissions_implicitTablePermissions,
@@ -35,10 +36,11 @@ func TestAccAWSLakeFormation_serial(t *testing.T) {
 			"basicDataSource":            testAccAWSLakeFormationPermissionsDataSource_basic,
 			"dataLocationDataSource":     testAccAWSLakeFormationPermissionsDataSource_dataLocation,
 			"databaseDataSource":         testAccAWSLakeFormationPermissionsDataSource_database,
+			"policyTagDataSource":        testAccAWSLakeFormationPermissionsDataSource_policy_tag,
 			"tableDataSource":            testAccAWSLakeFormationPermissionsDataSource_table,
 			"tableWithColumnsDataSource": testAccAWSLakeFormationPermissionsDataSource_tableWithColumns,
 		},
-		"PolicyTag": {
+		"PolicyTags": {
 			"basic":      testAccAWSLakeFormationPolicyTag_basic,
 			"disappears": testAccAWSLakeFormationPolicyTag_disappears,
 			"values":     testAccAWSLakeFormationPolicyTag_values,

@@ -40,6 +40,10 @@ func FilterPermissions(input *lakeformation.ListPermissionsInput, tableType stri
 		return FilterLakeFormationDatabasePermissions(allPermissions)
 	}
 
+	if input.Resource.LFTag != nil {
+		return FilterLakeFormationLFTagPermissions(allPermissions)
+	}
+
 	if tableType == TableTypeTableWithColumns {
 		return FilterLakeFormationTableWithColumnsPermissions(input.Resource.Table, columnNames, excludedColumnNames, columnWildcard, allPermissions)
 	}
@@ -178,4 +182,16 @@ func StringSlicesEqualIgnoreOrder(s1, s2 []*string) bool {
 	sort.Strings(v2)
 
 	return reflect.DeepEqual(v1, v2)
+}
+
+func FilterLakeFormationLFTagPermissions(allPermissions []*lakeformation.PrincipalResourcePermissions) []*lakeformation.PrincipalResourcePermissions {
+	var cleanPermissions []*lakeformation.PrincipalResourcePermissions
+
+	for _, perm := range allPermissions {
+		if perm.Resource.LFTag != nil {
+			cleanPermissions = append(cleanPermissions, perm)
+		}
+	}
+
+	return cleanPermissions
 }
