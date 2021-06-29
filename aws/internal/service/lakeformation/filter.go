@@ -44,6 +44,10 @@ func FilterPermissions(input *lakeformation.ListPermissionsInput, tableType stri
 		return FilterLakeFormationLFTagPermissions(allPermissions)
 	}
 
+	if input.Resource.LFTagPolicy != nil {
+		return FilterLakeFormationLFTagPolicyPermissions(allPermissions)
+	}
+
 	if tableType == TableTypeTableWithColumns {
 		return FilterLakeFormationTableWithColumnsPermissions(input.Resource.Table, columnNames, excludedColumnNames, columnWildcard, allPermissions)
 	}
@@ -189,6 +193,18 @@ func FilterLakeFormationLFTagPermissions(allPermissions []*lakeformation.Princip
 
 	for _, perm := range allPermissions {
 		if perm.Resource.LFTag != nil {
+			cleanPermissions = append(cleanPermissions, perm)
+		}
+	}
+
+	return cleanPermissions
+}
+
+func FilterLakeFormationLFTagPolicyPermissions(allPermissions []*lakeformation.PrincipalResourcePermissions) []*lakeformation.PrincipalResourcePermissions {
+	var cleanPermissions []*lakeformation.PrincipalResourcePermissions
+
+	for _, perm := range allPermissions {
+		if perm.Resource.LFTagPolicy != nil {
 			cleanPermissions = append(cleanPermissions, perm)
 		}
 	}

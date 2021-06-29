@@ -159,6 +159,38 @@ func testAccAWSLakeFormationPermissions_policy_tag(t *testing.T) {
 	})
 }
 
+func TestAccAWSLakeFormationPermissions_tag_policy(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	resourceName := "aws_lakeformation_permissions.test"
+	roleName := "aws_iam_role.test"
+	tagName := "aws_lakeformation_policy_tag.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t); testAccPartitionHasServicePreCheck(lakeformation.EndpointsID, t) },
+		ErrorCheck:   testAccErrorCheck(t, lakeformation.EndpointsID),
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAWSLakeFormationPermissionsDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSLakeFormationPermissionsConfig_tag_policy(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckAWSLakeFormationPermissionsExists(resourceName),
+					resource.TestCheckResourceAttrPair(resourceName, "principal", roleName, "arn"),
+					resource.TestCheckResourceAttr(resourceName, "catalog_resource", "false"),
+					resource.TestCheckResourceAttr(resourceName, "tag_policy.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "tag_policy.0.expression.#", "1"),
+					resource.TestCheckResourceAttrPair(resourceName, "tag_policy.0.expression.0.key", tagName, "key"),
+					resource.TestCheckResourceAttrPair(resourceName, "tag_policy.0.expression.0.values", tagName, "values"),
+					resource.TestCheckResourceAttr(resourceName, "permissions.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "permissions.0", "ALTER"),
+					resource.TestCheckResourceAttr(resourceName, "permissions.1", "CREATE_TABLE"),
+					resource.TestCheckResourceAttr(resourceName, "permissions_with_grant_option.#", "0"),
+				),
+			},
+		},
+	})
+}
+
 func testAccAWSLakeFormationPermissions_tableName(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-acc-test")
 	resourceName := "aws_lakeformation_permissions.test"
@@ -555,6 +587,38 @@ func permissionCountForLakeFormationResource(conn *lakeformation.LakeFormation, 
 		input.Resource.LFTag = expandLakeFormationLFTagKeyResource(tfMap)
 	}
 
+	if v, ok := rs.Primary.Attributes["tag_policy.#"]; ok && v != "" && v != "0" {
+		tfMap := map[string]interface{}{}
+
+		if v := rs.Primary.Attributes["tag_policy.0.catalog_id"]; v != "" {
+			tfMap["catalog_id"] = v
+		}
+
+		if count, err := strconv.Atoi(rs.Primary.Attributes["tag_policy.0.expression.#"]); err == nil {
+			var expressions []interface{}
+			for i := 0; i < count; i++ {
+				expressionAttrs := make(map[string]interface{})
+				expressionAttrs["key"] = rs.Primary.Attributes[fmt.Sprintf("tag_policy.0.expression.%d.key", i)]
+
+				if valCount, err := strconv.Atoi(rs.Primary.Attributes[fmt.Sprintf("tag_policy.0.expression.%d.values.#", i)]); err == nil {
+					var tagValues []string
+					for j := 0; j < valCount; j++ {
+						tagValues = append(tagValues, rs.Primary.Attributes[fmt.Sprintf("tag_policy.0.expression.%d.values.%d", i, j)])
+					}
+					expressionAttrs["values"] = flattenStringSet(aws.StringSlice(tagValues))
+				}
+				expressions = append(expressions, expressionAttrs)
+			}
+			tfMap["expression"] = expressions
+		}
+
+		if v := rs.Primary.Attributes["tag_policy.0.resource_type"]; v != "" {
+			tfMap["resource_type"] = v
+		}
+
+		input.Resource.LFTagPolicy = expandLakeFormationLFTagPolicyResource(tfMap)
+	}
+
 	tableType := ""
 
 	if v, ok := rs.Primary.Attributes["table.#"]; ok && v != "" && v != "0" {
@@ -900,6 +964,64 @@ resource "aws_lakeformation_permissions" "test" {
 
   # for consistency, ensure that admins are setup before testing
   depends_on = [aws_lakeformation_data_lake_settings.test]
+}
+`, rName)
+}
+
+func testAccAWSLakeFormationPermissionsConfig_tag_policy(rName string) string {
+	return fmt.Sprintf(`
+data "aws_partition" "current" {}
+
+resource "aws_iam_role" "test" {
+  name = %[1]q
+  path = "/"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "glue.${data.aws_partition.current.dns_suffix}"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+data "aws_caller_identity" "current" {}
+resource "aws_lakeformation_data_lake_settings" "test" {
+  admins = [data.aws_caller_identity.current.arn]
+}
+
+resource "aws_lakeformation_policy_tag" "test" {
+  key    = %[1]q
+  values = ["value1", "value2"]
+
+  # for consistency, ensure that admins are setup before testing
+  depends_on = [aws_lakeformation_data_lake_settings.test]
+}
+
+resource "aws_lakeformation_permissions" "test" {
+	principal = aws_iam_role.test.arn
+
+  permissions = ["ALTER", "CREATE_TABLE"]
+
+  tag_policy {
+		resource_type = "DATABASE"
+
+		expression {
+			key    = aws_lakeformation_policy_tag.test.key
+			values = aws_lakeformation_policy_tag.test.values
+		}
+  }
+
+	# for consistency, ensure that admins are setup before testing
+	depends_on = [aws_lakeformation_data_lake_settings.test]
 }
 `, rName)
 }
